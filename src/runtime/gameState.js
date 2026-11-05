@@ -212,6 +212,12 @@ export const WORLD_DEFAULTS = {
   simulationRules: "",
   startingTimelineText: "",
   units: [],
+  // Hardcoded mechanics state: engine-owned values tracked per polity so
+  // long-term progress does not depend on AI memory alone.
+  // Each entry is keyed by polity code (full country name).
+  economy: {},
+  population: {},
+  politics: {},
 };
 
 // Military units that ride along inside world state (world.units[]). Stored here

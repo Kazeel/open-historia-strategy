@@ -93,6 +93,70 @@ export const FEATURE_DEFINITIONS = Object.freeze([
       }),
     ]),
   }),
+  // Hardcoded mechanics: engine-owned state the AI proposes to and the engine
+  // applies deterministically each turn, so long-term progress does not depend on
+  // AI memory alone (see src/runtime/mechanicsEngine.js).
+  Object.freeze({
+    key: "hardcodedEconomy",
+    label: "Hardcoded economy",
+    description: "Treasury, income and expenses tracked per polity by the engine. Each turn the engine collects taxes, pays upkeep and reports the balance; the AI writes the events that explain it. Off: no treasury state, no engine economic events.",
+    settings: Object.freeze([
+      Object.freeze({
+        key: "taxRate",
+        label: "Tax rate",
+        unit: "% of income collected",
+        min: 0,
+        max: 100,
+        step: 5,
+        defaultValue: 20,
+        description: "What share of each polity's income the engine collects into the treasury each turn.",
+      }),
+      Object.freeze({
+        key: "upkeepPerUnit",
+        label: "Unit upkeep",
+        unit: "per unit, per turn",
+        min: 0,
+        max: 1000,
+        step: 10,
+        defaultValue: 50,
+        description: "Treasury cost per military unit each turn, paid from the owner's treasury.",
+      }),
+    ]),
+  }),
+  Object.freeze({
+    key: "hardcodedPopulation",
+    label: "Hardcoded population",
+    description: "Population tracked per polity by the engine. Each turn the engine applies growth/decline and reports it; the AI writes the events. Off: no population state, no engine population events.",
+    settings: Object.freeze([
+      Object.freeze({
+        key: "growthRate",
+        label: "Population growth rate",
+        unit: "% per turn",
+        min: -5,
+        max: 5,
+        step: 1,
+        defaultValue: 1,
+        description: "Base population growth rate applied each turn, before events modify it.",
+      }),
+    ]),
+  }),
+  Object.freeze({
+    key: "hardcodedPolitics",
+    label: "Hardcoded politics",
+    description: "Political stability and clout tracked per polity by the engine. Each turn the engine drifts stability toward baseline and spends clout on AI-proposed actions. Off: no politics state, no engine political events.",
+    settings: Object.freeze([
+      Object.freeze({
+        key: "stabilityBaseline",
+        label: "Stability baseline",
+        unit: "0-100",
+        min: 0,
+        max: 100,
+        step: 5,
+        defaultValue: 50,
+        description: "The stability each polity drifts toward each turn when nothing pushes it away.",
+      }),
+    ]),
+  }),
 ]);
 
 export const FEATURE_KEYS = Object.freeze(FEATURE_DEFINITIONS.map((definition) => definition.key));
