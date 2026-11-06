@@ -279,6 +279,7 @@ import { applyChatActionBatch, describeChatActionFeedback } from "./chatActions.
 import { gmChangesForRound, normalizeReminders, recordGmChange, renderGmChangeNarration, renderReminders } from "../../runtime/gmChanges.js";
 import { describeGoalForSimulation, describeGoalForSuggestions, playerGoalOf } from "../../runtime/playerGoal.js";
 import { applyMechanicsTurn } from "../../runtime/mechanics/index.js";
+import { mechanicPromptText } from "../../runtime/mechanics/prompts.js";
 import { createSkipPhases, describeReviewJobs, formatSkipPhases } from "./skipPhases.js";
 import { createStreamedEventReader } from "./streamedEvents.js";
 import { deliveryEventId, documentExchange, documentNote, documentNotices, isDocumentExchange, markIntercepted, planReportDeliveries, withoutOrphanedDocuments, withoutOrphanedNotices } from "../../runtime/reportDelivery.js";
@@ -1599,6 +1600,9 @@ const buildTemplateVariables = async (bundle, options = {}) => {
   }
   if (wants("playerPolityIntelligenceContext")) {
     variables.playerPolityIntelligenceContext = buildPlayerPolityIntelligenceText(bundle);
+  }
+  if (wants("mechanicContext")) {
+    variables.mechanicContext = mechanicPromptText(bundle.world);
   }
   if (wants("unitsSummary")) {
     variables.unitsSummary =
