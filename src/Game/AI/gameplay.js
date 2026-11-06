@@ -273,12 +273,11 @@ import { isDebugLogVerbose, logDebugEvent } from "../../runtime/debugLog.js";
 import { isFallbackListConfigured } from "./providerConfig.js";
 import { assertCampaignUnchanged } from "../../runtime/campaignGuard.js";
 import { getLibraryState } from "../../runtime/library.js";
-import { getActiveWorldDirection, idleDiplomacyChancePerMinute, isActiveFeatureEnabled, getActiveFeatures } from "../../runtime/gameFeatures.js";
+import { getActiveWorldDirection, idleDiplomacyChancePerMinute, isActiveFeatureEnabled } from "../../runtime/gameFeatures.js";
 import { describeIntervention, journalTurn, truncateTurn } from "./intervene.js";
 import { applyChatActionBatch, describeChatActionFeedback } from "./chatActions.js";
 import { gmChangesForRound, normalizeReminders, recordGmChange, renderGmChangeNarration, renderReminders } from "../../runtime/gmChanges.js";
 import { describeGoalForSimulation, describeGoalForSuggestions, playerGoalOf } from "../../runtime/playerGoal.js";
-import { applyMechanicsTurn, mechanicPromptText } from "../../runtime/mechanicsEngine.js";
 import { createSkipPhases, describeReviewJobs, formatSkipPhases } from "./skipPhases.js";
 import { createStreamedEventReader } from "./streamedEvents.js";
 import { deliveryEventId, documentExchange, documentNote, documentNotices, isDocumentExchange, markIntercepted, planReportDeliveries, withoutOrphanedDocuments, withoutOrphanedNotices } from "../../runtime/reportDelivery.js";
@@ -1599,9 +1598,6 @@ const buildTemplateVariables = async (bundle, options = {}) => {
   }
   if (wants("playerPolityIntelligenceContext")) {
     variables.playerPolityIntelligenceContext = buildPlayerPolityIntelligenceText(bundle);
-  }
-  if (wants("mechanicContext")) {
-    variables.mechanicContext = mechanicPromptText(bundle.world);
   }
   if (wants("unitsSummary")) {
     variables.unitsSummary =
@@ -8357,26 +8353,6 @@ const applySimulationResult = async ({
   }
 
   let nextWorld = worldWithImpacts;
-
-  // Hardcoded mechanics: the engine applies deterministic changes each turn
-  // (taxes, upkeep, population growth, stability drift) and returns events the
-  // AI narrates. Runs on every jump/auto skip so long-term state does not
-  // depend on AI memory alone.
-  if (result.mode === "jump" || result.mode === "auto") {
-    const features = getActiveFeatures();
-    const spanDays = diffGameDays(baseGame.gameDate, nextGame.gameDate);
-    const mechanicResult = applyMechanicsTurn(nextWorld, features, {
-      round: nextGame.round,
-      date: nextGame.gameDate,
-      spanDays,
-    });
-    nextWorld = mechanicResult.world;
-    for (const event of mechanicResult.events) {
-      const normalized = normalizeGeneratedEvent({ ...event, source: "mechanic" }, freshEvents.length);
-      if (normalized) freshEvents.push(normalized);
-    }
-  }
-
   // Everything this turn writes into a thread or a file is shown with an event
   // (runtime/unseenEvents.js): a chat an event opened with that event, and what
   // belongs to the period rather than to one event with its last.
