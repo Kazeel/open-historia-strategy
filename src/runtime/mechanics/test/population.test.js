@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyPopulationTurn, applyPopulationDelta } from "../population.js";
+import { applyPopulationTurn, applyPopulationDelta, applyPopulationMigration } from "../population.js";
 
 const features = {
   hardcodedPopulation: { enabled: true, growthRate: 1 },
@@ -139,4 +139,70 @@ test("applyPopulationDelta small change applied silently", () => {
   });
   assert.strictEqual(events.length, 0);
   assert.strictEqual(next.countryStats["United States"].population.total, 1000500);
+});
+
+const migWorld = () => makeWorld({
+  countryStats: {
+    "United States": { mechanic: {}, population: { total: 1000000 } },
+    "Canada": { mechanic: {}, population: { total: 40000000 } },
+  },
+});
+
+test("applyPopulationMigration moves population from source to target", () => {
+  const world = migWorld();
+  const { events, world: next } = applyPopulationMigration(world, "United States", "Canada", 100000, {
+    date: "2025-01-01",
+  });
+  assert.strictEqual(next.countryStats["United States"].population.total, 900000);
+  assert.strictEqual(next.countryStats["Canada"].population.total, 40100000);
+  assert.strictEqual(events.length, 0);
+});
+
+test("applyPopulationMigration clamps source at zero", () => {
+  const world = migWorld();
+  // Source has 1,000,000 but asking for 2,000,000
+  const { world: next } = applyPopulationMigration(world, "United States", "Canada", 2000000, {
+    date: "2025-01-01",
+  });
+  assert.strictEqual(next.countryStats["United States"].population.total, 0);
+  assert.strictEqual(next.countryStats["Canada"].population.total, 41000000);
+});
+
+test("applyPopulationMigration zero amount returns world unchanged", () => {
+  const world = migWorld();
+  const { events, world: next } = applyPopulationMigration(world, "United States", "Canada", 0, {
+    date: "2025-01-01",
+  });
+  assert.strictEqual(next, world);
+  assert.strictEqual(events.length, 0);
+});
+
+test("applyPopulationMigration same source and target returns world unchanged", () => {
+  const world = migWorld();
+  const { events, world: next } = applyPopulationMigration(world, "United States", "United States", 100000, {
+    date: "2025-01-01",
+  });
+  assert.strictEqual(next, world);
+  assert.strictEqual(events.length, 0);
+});
+
+test("applyPopulationMigration records popDelta on both polities", () => {
+  const world = migWorld();
+  const { world: next } = applyPopulationMigration(world, "United States", "Canada", 50000, {
+    date: "2025-01-01",
+  });
+  assert.strictEqual(
+    next.countryStats["United States"].mechanic.lastChange.popDelta,
+    -50000
+  );
+  assert.strictEqual(next.countryStats["Canada"].mechanic.lastChange.popDelta, 50000);
+});
+
+test("applyPopulationMigration missing polity returns world unchanged", () => {
+  const world = migWorld();
+  const { events, world: next } = applyPopulationMigration(world, "France", "Canada", 100000, {
+    date: "2025-01-01",
+  });
+  assert.strictEqual(next, world);
+  assert.strictEqual(events.length, 0);
 });

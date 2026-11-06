@@ -85,6 +85,8 @@ export const applyPopulationTurn = (world, features, { round, date, spanDays }) 
   return { events: [], world: nextWorld };
 };
 
+// Apply a one-off population change to a single polity (war, epidemic, etc.).
+// Silent by default; popDelta recorded so AI prompt context can reference it.
 export const applyPopulationDelta = (world, code, delta, { date } = {}) => {
   const change = Math.round(Number(delta) || 0);
   if (change === 0) return { events: [], world };
@@ -96,9 +98,6 @@ export const applyPopulationDelta = (world, code, delta, { date } = {}) => {
   const currentTotal = asNumber(popEntry.total, 0);
   const nextTotal = Math.max(0, currentTotal + change);
 
-  // Delta changes (war, epidemic, migration, etc.) are narrated by the AI.
-  // The engine only applies the number silently; popDelta is recorded so
-  // the AI prompt context can reference it.
   let nextWorld = mergeIntoCountryStats(world, code, {
     lastChange: {
       ...(entry.mechanic?.lastChange ?? {}),
@@ -112,6 +111,67 @@ export const applyPopulationDelta = (world, code, delta, { date } = {}) => {
     countryStats: {
       ...nextWorld.countryStats,
       [code]: { ...nextWorld.countryStats[code], population: popStats },
+    },
+  };
+
+  return { events: [], world: nextWorld };
+};
+
+// Move population from one polity to another (net zero globally).
+// Clamps source at zero: cannot migrate more than the source has.
+// Silent by default — the AI narrates the move; popDelta is recorded per polity.
+export const applyPopulationMigration = (world, sourceCode, targetCode, amount, { date } = {}) => {
+  const change = Math.round(Number(amount) || 0);
+  if (change === 0 || sourceCode === targetCode) return { events: [], world };
+
+  const sourceEntry = world.countryStats?.[sourceCode];
+  const targetEntry = world.countryStats?.[targetCode];
+  if (!sourceEntry || typeof sourceEntry !== "object" || !targetEntry || typeof targetEntry !== "object") {
+    return { events: [], world };
+  }
+
+  const sourcePopEntry = sourceEntry.population ?? {};
+  const sourceCurrent = asNumber(sourcePopEntry.total, 0);
+  const actualChange = Math.min(change, sourceCurrent);
+  if (actualChange <= 0) return { events: [], world };
+
+  const sourceNextTotal = sourceCurrent - actualChange;
+  const targetPopEntry = targetEntry.population ?? {};
+  const targetCurrent = asNumber(targetPopEntry.total, 0);
+  const targetNextTotal = targetCurrent + actualChange;
+
+  let nextWorld = mergeIntoCountryStats(world, sourceCode, {
+    lastChange: {
+      ...(sourceEntry.mechanic?.lastChange ?? {}),
+      popDelta: -actualChange,
+    },
+    updatedRound: sourceEntry.mechanic?.updatedRound ?? 0,
+  });
+  nextWorld = mergeIntoCountryStats(nextWorld, targetCode, {
+    lastChange: {
+      ...(targetEntry.mechanic?.lastChange ?? {}),
+      popDelta: actualChange,
+    },
+    updatedRound: targetEntry.mechanic?.updatedRound ?? 0,
+  });
+
+  const sourcePopStats = { ...(nextWorld.countryStats[sourceCode]?.population ?? {}) };
+  sourcePopStats.total = sourceNextTotal;
+  nextWorld = {
+    ...nextWorld,
+    countryStats: {
+      ...nextWorld.countryStats,
+      [sourceCode]: { ...nextWorld.countryStats[sourceCode], population: sourcePopStats },
+    },
+  };
+
+  const targetPopStats = { ...(nextWorld.countryStats[targetCode]?.population ?? {}) };
+  targetPopStats.total = targetNextTotal;
+  nextWorld = {
+    ...nextWorld,
+    countryStats: {
+      ...nextWorld.countryStats,
+      [targetCode]: { ...nextWorld.countryStats[targetCode], population: targetPopStats },
     },
   };
 

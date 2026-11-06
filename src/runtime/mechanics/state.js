@@ -1,7 +1,7 @@
 /*! Open Historia — mechanic state foundation © 2026 Nicholas Krol, AGPL-3.0-or-later (see LICENSE). */
 // Engine-owned mechanic state tracked per polity inside the existing
-// world.countryStats[code] schema. This module is import-free: gameplay.js
-// hands in the resolved world and feature settings, just like worldDirection.js.
+// world.countryStats[code] schema. Import-free: gameplay.js hands in the
+// resolved world and feature settings, just like worldDirection.js.
 //
 // Each polity that has units, relations, or is the player's country gets a
 // `mechanic` sub-object inside its countryStats entry:
@@ -130,8 +130,7 @@ export const getMechanicEntry = (world, code) => {
 };
 
 // Simple feature-enabled check (import-free copy of the pattern in
-// server/gameFeatures.js). Returns true when the feature exists and is not
-// explicitly disabled.
+// server/gameFeatures.js).
 export const isFeatureEnabled = (features, key) => {
   const entry = features?.[key];
   return entry ? entry.enabled !== false : false;
