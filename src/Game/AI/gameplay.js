@@ -278,6 +278,7 @@ import { describeIntervention, journalTurn, truncateTurn } from "./intervene.js"
 import { applyChatActionBatch, describeChatActionFeedback } from "./chatActions.js";
 import { gmChangesForRound, normalizeReminders, recordGmChange, renderGmChangeNarration, renderReminders } from "../../runtime/gmChanges.js";
 import { describeGoalForSimulation, describeGoalForSuggestions, playerGoalOf } from "../../runtime/playerGoal.js";
+import { applyMechanicsTurn } from "../../runtime/mechanics/index.js";
 import { createSkipPhases, describeReviewJobs, formatSkipPhases } from "./skipPhases.js";
 import { createStreamedEventReader } from "./streamedEvents.js";
 import { deliveryEventId, documentExchange, documentNote, documentNotices, isDocumentExchange, markIntercepted, planReportDeliveries, withoutOrphanedDocuments, withoutOrphanedNotices } from "../../runtime/reportDelivery.js";
@@ -8353,6 +8354,23 @@ const applySimulationResult = async ({
   }
 
   let nextWorld = worldWithImpacts;
+
+  // Hardcoded mechanics: engine applies deterministic per-turn changes
+  // (economy, population, politics) so long-term state does not depend on
+  // AI memory alone. Runs on every jump/auto time skip.
+  if (result.mode === "jump" || result.mode === "auto") {
+    const features = getActiveFeatures();
+    const mechanicResult = applyMechanicsTurn(nextWorld, features, {
+      round: nextGame.round,
+      date: nextGame.gameDate,
+    });
+    nextWorld = mechanicResult.world;
+    for (const event of mechanicResult.events) {
+      const normalized = normalizeGeneratedEvent({ ...event, source: "mechanic" }, freshEvents.length);
+      if (normalized) freshEvents.push(normalized);
+    }
+  }
+
   // Everything this turn writes into a thread or a file is shown with an event
   // (runtime/unseenEvents.js): a chat an event opened with that event, and what
   // belongs to the period rather than to one event with its last.
