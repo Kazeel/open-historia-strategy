@@ -40,11 +40,14 @@ const populationSettings = (features) => {
   };
 };
 
-export const applyPopulationTurn = (world, features, { round, date }) => {
+export const applyPopulationTurn = (world, features, { round, date, spanDays }) => {
   const settings = populationSettings(features);
   if (!settings) return { events: [], world };
 
-  const events = [];
+  // growthRate is "% per year"; scale by the actual skip length.
+  // Defaults to one year when spanDays is unknown (direct calls / tests).
+  const years = spanDays ? Math.max(0, spanDays) / 365 : 1;
+
   let nextWorld = world;
 
   for (const code of Object.keys(world.countryStats ?? {})) {
@@ -55,25 +58,11 @@ export const applyPopulationTurn = (world, features, { round, date }) => {
     const popEntry = entry.population ?? {};
     const currentTotal = asNumber(popEntry.total, 1000000);
 
-    const change = Math.round(currentTotal * settings.growthRate);
+    const change = Math.round(currentTotal * settings.growthRate * years);
     const nextTotal = currentTotal + change;
 
-    if (Math.abs(change) >= 1000) {
-      events.push({
-        date,
-        title: change > 0 ? `${code} population grows` : `${code} population shrinks`,
-        description: `Population changed by ${change > 0 ? "+" : ""}${change} this turn (${settings.growthRate * 100}% rate); total is now ${nextTotal}.`,
-        importance: "minor",
-        kind: "world",
-        tags: ["population"],
-        notable: false,
-        playerRelated: code === asText(world.game?.country),
-        impacts: {},
-        mechanic: "population",
-        mechanicData: { code, change, total: nextTotal, rate: settings.growthRate },
-      });
-    }
-
+    // Natural growth is silent: no engine event. Only state is recorded so
+    // the AI prompt context can reference popDelta if needed.
     nextWorld = mergeIntoCountryStats(nextWorld, code, {
       lastChange: {
         ...mechanic.lastChange,
@@ -93,5 +82,38 @@ export const applyPopulationTurn = (world, features, { round, date }) => {
     };
   }
 
-  return { events, world: nextWorld };
+  return { events: [], world: nextWorld };
+};
+
+export const applyPopulationDelta = (world, code, delta, { date } = {}) => {
+  const change = Math.round(Number(delta) || 0);
+  if (change === 0) return { events: [], world };
+
+  const entry = world.countryStats?.[code];
+  if (!entry || typeof entry !== "object") return { events: [], world };
+
+  const popEntry = entry.population ?? {};
+  const currentTotal = asNumber(popEntry.total, 0);
+  const nextTotal = Math.max(0, currentTotal + change);
+
+  // Delta changes (war, epidemic, migration, etc.) are narrated by the AI.
+  // The engine only applies the number silently; popDelta is recorded so
+  // the AI prompt context can reference it.
+  let nextWorld = mergeIntoCountryStats(world, code, {
+    lastChange: {
+      ...(entry.mechanic?.lastChange ?? {}),
+      popDelta: change,
+    },
+  });
+  const popStats = { ...(nextWorld.countryStats[code]?.population ?? {}) };
+  popStats.total = nextTotal;
+  nextWorld = {
+    ...nextWorld,
+    countryStats: {
+      ...nextWorld.countryStats,
+      [code]: { ...nextWorld.countryStats[code], population: popStats },
+    },
+  };
+
+  return { events: [], world: nextWorld };
 };

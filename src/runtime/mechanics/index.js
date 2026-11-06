@@ -13,7 +13,7 @@ export const applyMechanicsTurn = (world, features, { round, date, spanDays }) =
   current = economyResult.world;
   let events = [...economyResult.events];
 
-  const populationResult = applyPopulationTurn(current, features, { round, date });
+  const populationResult = applyPopulationTurn(current, features, { round, date, spanDays });
   current = populationResult.world;
   events = [...events, ...populationResult.events];
 
